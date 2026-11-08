@@ -7,6 +7,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import typeorm from './config/typeorm.js';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
+import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { APP_GUARD } from '@nestjs/core';
         return config;
       },
     }),
+    UsersModule,
   ],
   controllers: [],
   providers: [{
