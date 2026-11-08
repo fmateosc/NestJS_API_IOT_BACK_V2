@@ -1,11 +1,21 @@
 // src/modules/users/controllers/users.controller.ts
 
-import { Body, Controller, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { UsersService } from '../services/users.service.js';
 import { USER_ORIGIN } from '../../../constants/roles.js';
 import { RegisterUserDto } from '../dtos/user.dto.js';
 import { UsersEntity } from '../entities/users.entity.js';
 import type { Request } from 'express';
+import { GetUserInfo } from '../../auth/decorators/user.info.decorator.js';
+import type { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 
 @Controller('users')
 export class UsersController {
@@ -17,7 +27,7 @@ export class UsersController {
    * @param {RegisterUserDto} newUserData - Payload JSON.
    * @returns {Promise<any>} Estatus del proceso de auto-servilismo.
    */
-  
+
   @Post('register')
   public async createNewUser(
     @Body() newUserData: RegisterUserDto,
@@ -42,5 +52,22 @@ export class UsersController {
       USER_ORIGIN.WEB,
       baseUrl,
     );
+  }
+
+  // TODO: Implementar endpoint POST para creación de usuarios desde Backend (Root) con origen USER_ORIGIN.ROOT
+
+  /**
+   * @description Endpoint GET para resolver info de Entidad individual.
+   * Validado por scope: Admin solo puede verse a sí mismo.
+   * @param {string} userId - Auth param ID.
+   * @param {IUserInfo} userInfo - Decorador JWT.
+   * @returns {Promise<UsersEntity>} Entidad mapeada.
+   */
+  @Get('find/:userId')
+  public async findUserById(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @GetUserInfo() userInfo: IUserInfo,
+  ): Promise<UsersEntity> {
+    return await this.usersService.findUserById(userId, userInfo);
   }
 }

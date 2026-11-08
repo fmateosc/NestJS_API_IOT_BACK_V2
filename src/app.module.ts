@@ -8,6 +8,7 @@ import typeorm from './config/typeorm.js';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from './modules/users/users.module.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { UsersModule } from './modules/users/users.module.js';
       },
     }),
     UsersModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [{

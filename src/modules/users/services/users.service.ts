@@ -16,6 +16,7 @@ import { UserDto } from '../dtos/user.dto.js';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { ACCESS_LEVEL, USER_ORIGIN } from '../../../constants/index.js';
+import { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 
 @Injectable()
 export class UsersService {
@@ -137,7 +138,7 @@ export class UsersService {
     }
 
     // TODO: Crear ACL rule
-    
+
     // TODO: Send verification email if not auto-verified
 
     const message = isAutoVerified
@@ -149,5 +150,65 @@ export class UsersService {
       message,
       user: savedUser,
     };
+  }
+
+  /**
+   * @description Busca un usuario en la tabla validando los roles de acceso (Tenant).
+   * Si el requerimiento proviene de un 'ADMIN', sobreescribe restrictivamente la Query forzándole a devolverse
+   * solo a sí mismo (Evitando fuga de datos de otros usuarios o Superadministradores ROOT).
+   * @param {string} userId - UUID del objetivo a ser localizado.
+   * @param {IUserInfo} userInfo - Token decodificado limitando el alcance.
+   * @returns {Promise<UsersEntity>} Entidad base del Usuario.
+   * @throws {HttpException} Lanza error 404 (Not Found) si no halla al usuario o no posee acceso.
+   */
+  public async findUserById(
+    userId: string,
+    userInfo: IUserInfo,
+  ): Promise<UsersEntity> {
+    const queryBuilder = this.usersRepository
+      .createQueryBuilder('users')
+      .where({ id: userId });
+
+    // validate user
+    if (userInfo.userAccess === ACCESS_LEVEL.ADMIN) {
+      queryBuilder.andWhere('users.id = :id', { id: userInfo.userId });
+    }
+
+    const user = await queryBuilder.getOne();
+
+    if (!user) {
+      throw new HttpException(
+        `El usuario con el Id ${userId} no se encuentra en el sistema`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return user;
+  }
+
+  /**
+   * @description Helper Bypass interno para extraer Entidades ignorando interceptores tradicionales,
+   * requiriéndose típicamente para buscar por `userEmail` al resetear paswords, y arrastrando columnas ocultas como Password o 2FA.
+   * @param {Object} params - Diccionario con `key` (Clave en UserDto) y `value` (valor a coincidir).
+   * @returns {Promise<UsersEntity | null>} El resultado completo con campos ocultos expuestos en memoria volatil.
+   */
+  public async findBy({
+    key,
+    value,
+  }: {
+    key: keyof UserDto;
+    value: any;
+  }): Promise<UsersEntity | null> {
+    return await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect([
+        'user.password',
+        'user.isTwoStepAuthEnabled',
+        'user.twoStepCode',
+        'user.twoStepExpires',
+      ])
+      .where(`user.${key} = :value`, { value })
+      .andWhere('user.userStatus = :userStatus', { userStatus: true })
+      .getOne();
   }
 }
