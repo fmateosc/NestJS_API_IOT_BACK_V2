@@ -5,6 +5,7 @@ import { UsersService } from '../services/users.service.js';
 import { USER_ORIGIN } from '../../../constants/roles.js';
 import { RegisterUserDto } from '../dtos/user.dto.js';
 import { UsersEntity } from '../entities/users.entity.js';
+import type { Request } from 'express';
 
 @Controller('users')
 export class UsersController {
