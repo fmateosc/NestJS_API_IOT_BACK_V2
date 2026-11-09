@@ -17,6 +17,7 @@ import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { ACCESS_LEVEL, USER_ORIGIN } from '../../../constants/index.js';
 import { IUserInfo } from '../../auth/intefaces/auth.interface.js';
+import { PaginationDto } from '../../../common/dtos/pagination.dto.js';
 
 @Injectable()
 export class UsersService {
@@ -184,6 +185,52 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  // TODO: findOneSimple
+
+  /**
+   * @description Localiza todos los usuarios paginados y condicionados a una cadena de búsqueda
+   * que explora nombres, apellidos o correos. Reservado para uso exclusivo del Superadministrador (ROOT).
+   * @param {PaginationDto} paginationDto - Data Transfer Object albergando parámetros de cursor (limit, offset) y text search.
+   * @returns {Promise<{ limit: number, offset: number, count: number, users: UsersEntity[] }>} Tupla estandarizada de grillas.
+   * @throws {HttpException} 400 Bad Request si la tabla está totalmente vacía.
+   */
+  public async findAllUsers(
+    paginationDto: PaginationDto,
+  ): Promise<{
+    limit: number;
+    offset: number;
+    count: number;
+    users: UsersEntity[];
+  }> {
+    const limit = paginationDto.limit || Number(process.env.LIMIT) || 1000;
+    const offset = paginationDto.offset || Number(process.env.OFFSET) || 0;
+
+    const queryBuilder = this.usersRepository
+      .createQueryBuilder('users')
+      .take(limit)
+      .skip(offset);
+
+    if (paginationDto.search) {
+      queryBuilder.andWhere(
+        '(users.username LIKE :search OR users.firstName LIKE :search OR users.lastName LIKE :search OR users.email LIKE :search)',
+        { search: `%${paginationDto.search}%` },
+      );
+    }
+
+    const [users, count] = await queryBuilder.getManyAndCount();
+
+    if (!count) {
+      throw new HttpException(`No se han encontrado usuarios.`, HttpStatus.BAD_REQUEST);
+    }
+
+    return {
+      limit,
+      offset,
+      count,
+      users,
+    };
   }
 
   /**

@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { UsersService } from '../services/users.service.js';
@@ -16,6 +17,7 @@ import { UsersEntity } from '../entities/users.entity.js';
 import type { Request } from 'express';
 import { GetUserInfo } from '../../auth/decorators/user.info.decorator.js';
 import type { IUserInfo } from '../../auth/intefaces/auth.interface.js';
+import { PaginationDto } from '../../../common/dtos/pagination.dto.js';
 
 @Controller('users')
 export class UsersController {
@@ -69,5 +71,24 @@ export class UsersController {
     @GetUserInfo() userInfo: IUserInfo,
   ): Promise<UsersEntity> {
     return await this.usersService.findUserById(userId, userInfo);
+  }
+
+  /**
+   * @description Endpoint GET restritivo de Auditoría. Retorna la Grilla/Pool de todos
+   * los usarios suscritos en la DB. Usado en Panel ROOT Dashboard.
+   * @param {PaginationDto} paginationDto - Query string.
+   * @returns {Promise<any>} Array Paginado de Usuarios.
+   */
+
+  @Get('all')
+  public async findAllUsers(
+    @Query() paginationDto: PaginationDto,
+  ): Promise<{
+    limit: number;
+    offset: number;
+    count: number;
+    users: UsersEntity[];
+  }> {
+    return await this.usersService.findAllUsers(paginationDto);
   }
 }
