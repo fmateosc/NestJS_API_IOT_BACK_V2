@@ -18,6 +18,7 @@ import * as bcrypt from 'bcrypt';
 import { ACCESS_LEVEL, USER_ORIGIN } from '../../../constants/index.js';
 import { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 import { PaginationDto } from '../../../common/dtos/pagination.dto.js';
+import { UpdateUserDto } from '../dtos/update.user.dto.js';
 
 @Injectable()
 export class UsersService {
@@ -196,9 +197,7 @@ export class UsersService {
    * @returns {Promise<{ limit: number, offset: number, count: number, users: UsersEntity[] }>} Tupla estandarizada de grillas.
    * @throws {HttpException} 400 Bad Request si la tabla está totalmente vacía.
    */
-  public async findAllUsers(
-    paginationDto: PaginationDto,
-  ): Promise<{
+  public async findAllUsers(paginationDto: PaginationDto): Promise<{
     limit: number;
     offset: number;
     count: number;
@@ -222,7 +221,10 @@ export class UsersService {
     const [users, count] = await queryBuilder.getManyAndCount();
 
     if (!count) {
-      throw new HttpException(`No se han encontrado usuarios.`, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        `No se han encontrado usuarios.`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     return {
@@ -230,6 +232,43 @@ export class UsersService {
       offset,
       count,
       users,
+    };
+  }
+
+  /**
+   * @description Genera un parche de actualización sobre campos específicos del usuario.
+   * Incorpora subrutina de Hashing en caso de incluirse el campo `password`.
+   * Impide que los `ADMIN` puedan sobreescribir su propio `userAccess` para auto-otorgarse `ROOT`.
+   * @param {UpdateUserDto} updatedUserData - Objeto parcial tipo PartialType<UserDto>.
+   * @param {string} userId - UUID del objetivo.
+   * @param {IUserInfo} userInfo - Actor firmante en la transacción.
+   * @returns {Promise<{ status: boolean, user: UsersEntity }>} Status OK y entidad pre-hidratada con sus updates.
+   */
+  public async updateUserById(
+    updatedUserData: UpdateUserDto,
+    userId: string,
+    userInfo: IUserInfo,
+  ): Promise<{ status: boolean; user: UsersEntity }> {
+    const existingUser = await this.findUserById(userId, userInfo);
+
+    if (updatedUserData.password) {
+      const saltRounds = Number(process.env.HASH_SALT) || 10;
+      updatedUserData.password = await bcrypt.hash(
+        updatedUserData.password,
+        saltRounds,
+      );
+    }
+
+    if (existingUser.userAccess === ACCESS_LEVEL.ADMIN) {
+      updatedUserData.isSuperuser = false;
+      updatedUserData.userAccess = ACCESS_LEVEL.ADMIN;
+    }
+
+    await this.usersRepository.update(userId, updatedUserData);
+
+    return {
+      status: true,
+      user: { ...existingUser, ...updatedUserData },
     };
   }
 

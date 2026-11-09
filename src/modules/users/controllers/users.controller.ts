@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
   Req,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import type { Request } from 'express';
 import { GetUserInfo } from '../../auth/decorators/user.info.decorator.js';
 import type { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 import { PaginationDto } from '../../../common/dtos/pagination.dto.js';
+import { UpdateUserDto } from '../dtos/update.user.dto.js';
 
 @Controller('users')
 export class UsersController {
@@ -81,14 +83,33 @@ export class UsersController {
    */
 
   @Get('all')
-  public async findAllUsers(
-    @Query() paginationDto: PaginationDto,
-  ): Promise<{
+  public async findAllUsers(@Query() paginationDto: PaginationDto): Promise<{
     limit: number;
     offset: number;
     count: number;
     users: UsersEntity[];
   }> {
     return await this.usersService.findAllUsers(paginationDto);
+  }
+
+  /**
+   * @description Endpoint PUT protegido para forzar la actualización de metadatos de usuario (Nombres, AccessLevel, etc).
+   * @param {string} userId - Auth param ID.
+   * @param {UpdateUserDto} updatedUserData - Payload JSON parcial.
+   * @param {IUserInfo} userInfo - Decorador JWT limitando modificaciones fuera de tenant.
+   * @returns {Promise<any>} Objeto de usuario impactado con Success=True.
+   */
+
+  @Put('update/:userId')
+  public async updateUserById(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() updatedUserData: UpdateUserDto,
+    @GetUserInfo() userInfo: IUserInfo,
+  ): Promise<{ status: boolean; user: UsersEntity }> {
+    return await this.usersService.updateUserById(
+      updatedUserData,
+      userId,
+      userInfo,
+    );
   }
 }
