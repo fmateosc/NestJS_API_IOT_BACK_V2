@@ -11,6 +11,7 @@ import {
   Put,
   Query,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from '../services/users.service.js';
 import { USER_ORIGIN } from '../../../constants/roles.js';
@@ -22,8 +23,13 @@ import type { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 import { PaginationDto } from '../../../common/dtos/pagination.dto.js';
 import { UpdateUserDto } from '../dtos/update.user.dto.js';
 import { PasswordUserDto } from '../dtos/update.password.user.dto.js';
+import { AccessLevelGuard } from '../../auth/guard/access-level.guard.js';
+import { AuthGuard } from '../../auth/guard/auth.guard.js';
+import { PublicAccess } from '../../auth/decorators/public.decorator.js';
+import { Access } from '../../auth/decorators/access.decorator.js';
 
 @Controller('users')
+@UseGuards(AuthGuard, AccessLevelGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -33,7 +39,7 @@ export class UsersController {
    * @param {RegisterUserDto} newUserData - Payload JSON.
    * @returns {Promise<any>} Estatus del proceso de auto-servilismo.
    */
-
+  @PublicAccess()
   @Post('register')
   public async createNewUser(
     @Body() newUserData: RegisterUserDto,
@@ -60,7 +66,13 @@ export class UsersController {
     );
   }
 
-  // TODO: Implementar endpoint POST para creación de usuarios desde Backend (Root) con origen USER_ORIGIN.ROOT
+  @Access('ROOT')
+  @Post('register/root')
+  public async createNewUserByRoot(
+    @Body() newUserData: RegisterUserDto,
+  ): Promise<{ status: boolean; message: string; user: UsersEntity }> {
+    return await this.usersService.createNewUser(newUserData, USER_ORIGIN.ROOT);
+  }
 
   /**
    * @description Endpoint GET para resolver info de Entidad individual.
@@ -69,6 +81,7 @@ export class UsersController {
    * @param {IUserInfo} userInfo - Decorador JWT.
    * @returns {Promise<UsersEntity>} Entidad mapeada.
    */
+  @Access('ADMIN')
   @Get('find/:userId')
   public async findUserById(
     @Param('userId', ParseUUIDPipe) userId: string,
@@ -83,7 +96,7 @@ export class UsersController {
    * @param {PaginationDto} paginationDto - Query string.
    * @returns {Promise<any>} Array Paginado de Usuarios.
    */
-
+  @Access('ROOT')
   @Get('all')
   public async findAllUsers(@Query() paginationDto: PaginationDto): Promise<{
     limit: number;
@@ -101,7 +114,7 @@ export class UsersController {
    * @param {IUserInfo} userInfo - Decorador JWT limitando modificaciones fuera de tenant.
    * @returns {Promise<any>} Objeto de usuario impactado con Success=True.
    */
-
+  @Access('ADMIN')
   @Put('update/:userId')
   public async updateUserById(
     @Param('userId', ParseUUIDPipe) userId: string,
@@ -122,7 +135,7 @@ export class UsersController {
    * @param {IUserInfo} userInfo - Extrae el actor para validar si no es ROOT, asegurar que solo se borre a sí mismo.
    * @returns {Promise<any>} Status booleano y Entidad purgada final.
    */
-
+  @Access('ADMIN')
   @Delete('delete/:userId')
   public async deleteUserById(
     @Param('userId', ParseUUIDPipe) userId: string,
@@ -138,7 +151,7 @@ export class UsersController {
    * @param {PasswordUserDto} userPasswordData - DTO con credenciales (viejo, nuevo, confirmar).
    * @returns {Promise<any>} Objeto status confirmación.
    */
-
+  @Access('ADMIN')
   @Put('update/password/:userId')
   public async updateUserPasswordById(
     @Param('userId', ParseUUIDPipe) userId: string,
@@ -149,4 +162,26 @@ export class UsersController {
       userId,
     );
   }
+
+  /**
+   * @description Endpoint POST protegido que acciona la habilidad u obligación del Segundo Factor (2FA).
+   * Limpia la memoria expiratoria y código si se inhabilita.
+   * @param {boolean} isEnabled - Bandera booleana deseada.
+   * @param {IUserInfo} userInfo - Contexto actor solicitante.
+   * @returns {Promise<{ status: boolean }>} Objeto JSON con success.
+   */
+  @Access('ADMIN')
+  @Post('toggle-2fa')
+  public async toggleTwoStepAuth(
+    @Body('isEnabled') isEnabled: boolean,
+    @GetUserInfo() userInfo: IUserInfo,
+  ): Promise<{ status: boolean }> {
+    const success = await this.usersService.toggleTwoStepAuth(
+      userInfo.userId,
+      isEnabled,
+    );
+    return { status: success };
+  }
+
+  // TODO: verify-email
 }

@@ -7,13 +7,18 @@ import {
   HttpStatus,
   Logger,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from '../services/auth.service.js';
 import { UsersService } from '../../users/services/users.service.js';
 import { AuthDto } from '../dtos/auth.dto.js';
 import { AuthResponse } from '../intefaces/auth.interface.js';
+import { AccessLevelGuard } from '../guard/access-level.guard.js';
+import { AuthGuard } from '../guard/auth.guard.js';
+import { PublicAccess } from '../decorators/public.decorator.js';
 
 @Controller('auth')
+@UseGuards(AuthGuard, AccessLevelGuard)
 export class AuthController {
   private logger = new Logger(AuthController.name);
 
@@ -28,6 +33,7 @@ export class AuthController {
    * @param {AuthDto} payload - Objeto Body JSON validado con credenciales `username` y `password`.
    * @returns {Promise<AuthResponse>} Firma JWT Final hidratada o Desvío lógico avisando que el MFA es Requerido.
    */
+  @PublicAccess()
   @Post('login')
   async login(@Body() { username, password }: AuthDto): Promise<AuthResponse> {
     const userValidate = await this.authService.validateUser(

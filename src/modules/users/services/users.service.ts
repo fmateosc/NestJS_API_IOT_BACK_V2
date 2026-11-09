@@ -438,4 +438,20 @@ export class UsersService {
 
     await this.updateUserById(data, userId, userInfo);
   }
+
+  /**
+   * @description Activa o desactiva el segundo factor de autenticación.
+   */
+  async toggleTwoStepAuth(
+    userId: string,
+    isEnabled: boolean,
+  ): Promise<boolean> {
+    await this.usersRepository.update(userId, {
+      isTwoStepAuthEnabled: isEnabled,
+      twoStepCode: null as any,
+      twoStepExpires: null as any,
+    });
+    
+    return true;
+  }
 }
