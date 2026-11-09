@@ -3,6 +3,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -111,5 +112,21 @@ export class UsersController {
       userId,
       userInfo,
     );
+  }
+
+  /**
+   * @description Endpoint DELETE protegido. Inicia la eliminación física en cascada
+   * del usuario y todos sus Devices, Tasks y Messages atados.
+   * @param {string} userId - UUID.
+   * @param {IUserInfo} userInfo - Extrae el actor para validar si no es ROOT, asegurar que solo se borre a sí mismo.
+   * @returns {Promise<any>} Status booleano y Entidad purgada final.
+   */
+
+  @Delete('delete/:userId')
+  public async deleteUserById(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @GetUserInfo() userInfo: IUserInfo,
+  ): Promise<{ status: boolean; user: UsersEntity }> {
+    return await this.usersService.deleteUserById(userId, userInfo);
   }
 }

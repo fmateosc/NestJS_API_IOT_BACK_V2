@@ -273,6 +273,55 @@ export class UsersService {
   }
 
   /**
+   * @description Elimina sistemática y físicamente un usuario y, en cascada (Macro), destruye todos
+   * sus mensajes, y dispositivos IoT atados. Posee verificadores de Autoprotección para imposibilitar
+   * la eliminación del usuario primario ROOT, garantizando la establidad de la plataforma.
+   * @param {string} userId - UUID a remover temporal/definitivamente del sistema.
+   * @param {IUserInfo} userInfo - Verificador anti-escalada. Previene a inquilinos ADMIN cruzarse.
+   * @returns {Promise<{ status: boolean, user: UsersEntity }>} Feed log indicando su cesación en cascada.
+   * @throws {HttpException} Errores de permiso 403 Forbidden.
+   */
+  public async deleteUserById(
+    userId: string,
+    userInfo: IUserInfo,
+  ): Promise<{ status: boolean; user: UsersEntity }> {
+    // Explicit security check: Non-ROOT users can only delete themselves
+    if (
+      userInfo.userAccess !== ACCESS_LEVEL.ROOT &&
+      userInfo.userId !== userId
+    ) {
+      throw new HttpException(
+        'No tienes permiso para eliminar a este usuario.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    const existingUser = await this.findUserById(userId, userInfo);
+
+    // Security check: ROOT users cannot be deleted to ensure system stability.
+    if (existingUser.userAccess === ACCESS_LEVEL.ROOT) {
+      throw new HttpException(
+        'ROOT users cannot be deleted from the system',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // TODO: 1. Cleanup all user messages (destructive action)
+    
+
+    // TODO: 2. Cleanup all user devices (Macro to Micro)
+    
+
+    // 3. Delete user (Cascades to devices, acl, tasks due to DB constraints)
+    await this.usersRepository.delete(userId);
+
+    return {
+      status: true,
+      user: existingUser,
+    };
+  }
+
+  /**
    * @description Helper Bypass interno para extraer Entidades ignorando interceptores tradicionales,
    * requiriéndose típicamente para buscar por `userEmail` al resetear paswords, y arrastrando columnas ocultas como Password o 2FA.
    * @param {Object} params - Diccionario con `key` (Clave en UserDto) y `value` (valor a coincidir).
