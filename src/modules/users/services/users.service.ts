@@ -407,4 +407,29 @@ export class UsersService {
       .andWhere('user.userStatus = :userStatus', { userStatus: true })
       .getOne();
   }
+
+  /**
+   * @description Modifica el Timestamp silente "lastSeen" o el toggle Login cuando el motor WS
+   * capta actividad del usuario o un LogIn.
+   * @param {string} userId - UUID.
+   * @param {ACCESS_LEVEL | string} userAccess - Contexto extraído.
+   * @param {boolean} login - true si se ha autenticado activamente recién.
+   */
+  public async updateUserConnection(
+    userId: string,
+    userAccess: ACCESS_LEVEL | string,
+    login: boolean,
+  ): Promise<void> {
+    const userInfo: IUserInfo = {
+      userId,
+      userAccess,
+    };
+
+    const data: UpdateUserDto = {
+      userLastseen: new Date(),
+      userLogin: login,
+    };
+
+    await this.updateUserById(data, userId, userInfo);
+  }
 }
