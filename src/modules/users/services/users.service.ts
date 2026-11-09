@@ -19,6 +19,7 @@ import { ACCESS_LEVEL, USER_ORIGIN } from '../../../constants/index.js';
 import { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 import { PaginationDto } from '../../../common/dtos/pagination.dto.js';
 import { UpdateUserDto } from '../dtos/update.user.dto.js';
+import { PasswordUserDto } from '../dtos/update.password.user.dto.js';
 
 @Injectable()
 export class UsersService {
@@ -307,10 +308,8 @@ export class UsersService {
     }
 
     // TODO: 1. Cleanup all user messages (destructive action)
-    
 
     // TODO: 2. Cleanup all user devices (Macro to Micro)
-    
 
     // 3. Delete user (Cascades to devices, acl, tasks due to DB constraints)
     await this.usersRepository.delete(userId);
@@ -318,6 +317,68 @@ export class UsersService {
     return {
       status: true,
       user: existingUser,
+    };
+  }
+
+  /**
+   * @description Orquesta la rotación segura de contraseña exigiendo re-validación de Credencial Actual.
+   * Incorpora salteo y Hashing (Bcrypt) y bloquea la utilización repetida del mismo String subyacente.
+   * @param {PasswordUserDto} userPasswordData - DTO conteniendo old Password y new Password (repetido confimación).
+   * @param {string} userId - ID extractado del JWT inyectado.
+   * @returns {Promise<{ status: boolean, user: UsersEntity }>} Resolucion del cambio sobre la entidad purgada.
+   * @throws {HttpException} 400 Si el password viejo es erróneo, o el nuevo es idéntico/inválido.
+   */
+  public async updateUserPasswordById(
+    userPasswordData: PasswordUserDto,
+    userId: string,
+  ): Promise<{ status: boolean; user: UsersEntity }> {
+    const user = await this.findBy({ key: 'id', value: userId });
+
+    if (!user) {
+      throw new HttpException(
+        `Usuario con Id ${userId} no encontrado en el sistema.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (
+      !userPasswordData.currentpwd ||
+      !(await bcrypt.compare(userPasswordData.currentpwd, user.password))
+    ) {
+      throw new HttpException(
+        'Previous password does not match',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (
+      !userPasswordData.newpwd ||
+      (await bcrypt.compare(userPasswordData.newpwd, user.password))
+    ) {
+      throw new HttpException(
+        'The new password cannot be the same as the previous one',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (userPasswordData.newpwd !== userPasswordData.confirmpwd) {
+      throw new HttpException(
+        'The new password and confirmation do not match',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const saltRounds = Number(process.env.HASH_SALT) || 10;
+    const hashedPassword = await bcrypt.hash(
+      userPasswordData.newpwd,
+      saltRounds,
+    );
+
+    await this.usersRepository.update(userId, { password: hashedPassword });
+
+    return {
+      status: true,
+      user: { ...user },
     };
   }
 

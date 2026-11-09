@@ -21,6 +21,7 @@ import { GetUserInfo } from '../../auth/decorators/user.info.decorator.js';
 import type { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 import { PaginationDto } from '../../../common/dtos/pagination.dto.js';
 import { UpdateUserDto } from '../dtos/update.user.dto.js';
+import { PasswordUserDto } from '../dtos/update.password.user.dto.js';
 
 @Controller('users')
 export class UsersController {
@@ -128,5 +129,24 @@ export class UsersController {
     @GetUserInfo() userInfo: IUserInfo,
   ): Promise<{ status: boolean; user: UsersEntity }> {
     return await this.usersService.deleteUserById(userId, userInfo);
+  }
+
+  /**
+   * @description Endpoint PUT aislado para la rotación de contraseñas.
+   * Valida que el oldPassword haga Match físico antes de cambiarlo.
+   * @param {string} userId - UUID del objetivo.
+   * @param {PasswordUserDto} userPasswordData - DTO con credenciales (viejo, nuevo, confirmar).
+   * @returns {Promise<any>} Objeto status confirmación.
+   */
+
+  @Put('update/password/:userId')
+  public async updateUserPasswordById(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() userPasswordData: PasswordUserDto,
+  ): Promise<{ status: boolean; user: UsersEntity }> {
+    return await this.usersService.updateUserPasswordById(
+      userPasswordData,
+      userId,
+    );
   }
 }
