@@ -3,6 +3,7 @@
 import { Column, Entity, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../../config/base.entity.js';
 import { ACCESS_LEVEL, USER_ORIGIN } from '../../../constants/index.js';
+import { AclEntity } from '../../auth/entities/acl.entity.js';
 //import { AclEntity } from '../../auth/entities/acl.entity.js';
 //import { DevicesEntity } from '../../devices/entities/devices.entity.js';
 //import { TaskEntity } from '../../schedules/task/entities/task.entity.js';
@@ -141,8 +142,8 @@ export class UsersEntity extends BaseEntity {
   timezone: string;
 
   // acl
-  //@OneToMany(() => AclEntity, (acl) => acl.createUserId)
-  //aclRules: AclEntity[];
+  @OneToMany(() => AclEntity, (acl) => acl.createUserId)
+  aclRules: AclEntity[];
 
   // devices
   //@OneToMany(() => DevicesEntity, (device) => device.createUserId)

@@ -53,4 +53,11 @@ export class AclEntity extends BaseEntity {
 
   @Column({ type: 'smallint' }) // 0, 1
   retain: number;
+
+  // users relationship
+  @ManyToOne('UsersEntity', (user: UsersEntity) => user.aclRules, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'create_user_id' })
+  createUserId: Relation<UsersEntity>;
 }

@@ -13,12 +13,19 @@ import * as bcrypt from 'bcrypt';
 import { IUser } from '../../users/interfaces/user.interface.js';
 import { AuthResponse, PayloadToken } from '../intefaces/auth.interface.js';
 import * as jwt from 'jsonwebtoken';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AclEntity } from '../entities/acl.entity.js';
+import { ACL_ACTION, ACL_PERMISSION } from '../../../constants/index.js';
+import type { WrapperType } from '../../../common/types/wrapper.type.js';
 
 @Injectable()
 export class AuthService {
   constructor(
     @Inject(forwardRef(() => UsersService))
-    private readonly usersService: UsersService,
+    private readonly usersService: WrapperType<UsersService>,
+    @InjectRepository(AclEntity)
+    private readonly aclRepository: Repository<AclEntity>,
   ) {}
 
   /**
@@ -101,5 +108,66 @@ export class AuthService {
     return jwt.sign(payload, secret, {
       expiresIn: expires as jwt.SignOptions['expiresIn'],
     });
+  }
+
+  /**
+   * @description Enlaza las plantillas obligatorias (Hardcoded) de Control de Acceso (ACLs) del clúster MQTT
+   * al crearse un Nuevo Usuario, asegurando que solo pueda Inyectarse (Sub/Pub) a sub-tópicos
+   * colgantes estrictamente de su Root Username (Ej. `/+/#` para `mqtt_user`).
+   * @param {UsersEntity} user - Instancia persistida del dueño a relacionar.
+   * @returns {Promise<void>}
+   */
+  public async createNewAclRule(user: UsersEntity): Promise<void> {
+    const topics = [
+      `/${user.username}/#`, // /emqx6/# allowed
+      `+/#`, // deny
+    ];
+
+    const permissions: { action: ACL_ACTION; permission: ACL_PERMISSION }[] = [
+      { action: ACL_ACTION.ALL, permission: ACL_PERMISSION.ALLOW },
+      { action: ACL_ACTION.ALL, permission: ACL_PERMISSION.DENY },
+    ];
+
+    await Promise.all(
+      topics.map((topic, index) =>
+        this.createAndSaveAcl(
+          user.username,
+          permissions[index].action,
+          permissions[index].permission,
+          topic,
+          user.id,
+        ),
+      ),
+    );
+  }
+
+  /**
+   * @description Escribe una fila de ACL en la interfaz física de la tabla `mqtt_acl` (ó equivalente) para consumición del plugin
+   * Auth de EMQX cada vez que el microcontrolador pida suscribirse a un Tópico.
+   * @param {string} username - Client Username de MQTT idéntico al de Login en plataforma.
+   * @param {ACL_ACTION} action - Subscribir (SUB), Publicar (PUB) o ALL (Mismo de Sys).
+   * @param {ACL_PERMISSION} permission - Permisividad Blanca (ALLOW) o Lista Negra (DENY).
+   * @param {string} topic - Cadena enrutadora MQTT literal o usando Wildcards (`#` , `+`).
+   * @param {string} createUserId - Foreing Key UUID del Tenant propietario.
+   * @returns {Promise<AclEntity>} Registro relacional ACL persistido.
+   */
+  private async createAndSaveAcl(
+    username: string,
+    action: ACL_ACTION,
+    permission: ACL_PERMISSION,
+    topic: string,
+    createUserId: string,
+  ): Promise<AclEntity> {
+    const newAcl = this.aclRepository.create({
+      username,
+      action,
+      permission,
+      topic,
+      qos: 0,
+      retain: 0,
+      createUserId: { id: createUserId },
+    });
+
+    return this.aclRepository.save(newAcl);
   }
 }

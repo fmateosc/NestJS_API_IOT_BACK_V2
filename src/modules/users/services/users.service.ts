@@ -10,7 +10,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { WrapperType } from '../../../common/types/wrapper.type.js';
 import { UsersEntity } from '../entities/users.entity.js';
 import { UserDto } from '../dtos/user.dto.js';
 import { randomBytes } from 'crypto';
@@ -20,6 +19,8 @@ import { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 import { PaginationDto } from '../../../common/dtos/pagination.dto.js';
 import { UpdateUserDto } from '../dtos/update.user.dto.js';
 import { PasswordUserDto } from '../dtos/update.password.user.dto.js';
+import { AuthService } from '../../auth/services/auth.service.js';
+import type { WrapperType } from '../../../common/types/wrapper.type.js';
 
 @Injectable()
 export class UsersService {
@@ -28,6 +29,8 @@ export class UsersService {
   constructor(
     @InjectRepository(UsersEntity)
     private readonly usersRepository: Repository<UsersEntity>,
+    @Inject(forwardRef(() => AuthService))
+    private readonly authService: WrapperType<AuthService>,
   ) {}
 
   /**
@@ -140,7 +143,10 @@ export class UsersService {
       );
     }
 
-    // TODO: Crear ACL rule
+    // Step 3: Secondary operations only for successfully saved users
+    if (savedUser.userAccess === ACCESS_LEVEL.ADMIN) {
+      await this.authService.createNewAclRule(savedUser);
+    }
 
     // TODO: Send verification email if not auto-verified
 
