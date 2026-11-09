@@ -12,7 +12,8 @@ import { UsersService } from '../../users/services/users.service.js';
 import * as bcrypt from 'bcrypt';
 import { IUser } from '../../users/interfaces/user.interface.js';
 import { AuthResponse, PayloadToken } from '../intefaces/auth.interface.js';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
+import type { SignOptions } from 'jsonwebtoken';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AclEntity } from '../entities/acl.entity.js';
@@ -106,7 +107,7 @@ export class AuthService {
     expires: number | string;
   }): string {
     return jwt.sign(payload, secret, {
-      expiresIn: expires as jwt.SignOptions['expiresIn'],
+      expiresIn: expires as SignOptions['expiresIn'],
     });
   }
 
