@@ -10,6 +10,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from './modules/users/users.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { DevicesModule } from './modules/devices/devices.module.js';
+import { SettingsModule } from './modules/settings/settings.module.js';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { DevicesModule } from './modules/devices/devices.module.js';
     UsersModule,
     AuthModule,
     DevicesModule,
+    SettingsModule,
   ],
   controllers: [],
   providers: [{

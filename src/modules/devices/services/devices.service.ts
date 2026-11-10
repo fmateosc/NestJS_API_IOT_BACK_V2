@@ -76,6 +76,8 @@ export class DevicesService {
     };
   }
 
+  // TODO: checkWhoParameter
+
   /**
    * @description Localiza un dispositivo por su identificador UUID en la base de datos,
    * aplicando filtros de Tenant/Autorización centralizados mediante QueryBuilderUtil.
@@ -107,4 +109,12 @@ export class DevicesService {
 
     return deviceResult;
   }
+
+  // TODO: Implementar updateDeviceById con manejo de EMQX y validaciones de estado
+
+  // TODO: updateDeviceById
+
+  // TODO: deleteDeviceById
+
+  // TODO: deleteDeviceById
 }
