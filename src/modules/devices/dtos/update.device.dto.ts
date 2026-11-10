@@ -1,3 +1,5 @@
+// src/modules/devices/services/update.device.dto.ts
+
 import { PartialType } from '@nestjs/swagger';
 import { DeviceDto } from './devices.dto.js';
 

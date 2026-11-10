@@ -4,6 +4,7 @@ import { QueryFailedError, Repository } from 'typeorm';
 import { DevicesEntity } from '../entities/devices.entity.js';
 import { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 import { DeviceDto } from '../dtos/devices.dto.js';
+import { QueryBuilderUtil } from '../../../util/query-builder.util.js';
 
 @Injectable()
 export class DevicesService {
@@ -73,5 +74,37 @@ export class DevicesService {
       message: `El dispositivo "${savedDevice.deviceName}" con el número de serie "${savedDevice.deviceSerial}" se ha creado correctamente.`,
       device: savedDevice,
     };
+  }
+
+  /**
+   * @description Localiza un dispositivo por su identificador UUID en la base de datos,
+   * aplicando filtros de Tenant/Autorización centralizados mediante QueryBuilderUtil.
+   * @param {string} deviceId - UUID primario del Device en la tabla relacional.
+   * @param {IUserInfo} userInfo - Token decodificado limitando el alcance de lectura según privilegios.
+   * @returns {Promise<DevicesEntity>} Entidad del dispositivo hidratada con la relación de su Creador.
+   * @throws {HttpException} Retorna 404 Not Found si el dispositivo no existe o no le pertenece al solicitante.
+   */
+  public async findDeviceById(
+    deviceId: string,
+    userInfo: IUserInfo,
+  ): Promise<DevicesEntity> {
+    const queryBuilder = this.deviceRepository
+      .createQueryBuilder('device')
+      .leftJoinAndSelect('device.createUserId', 'createUserId')
+      .where('device.id = :deviceId', { deviceId });
+
+    // Aplicar Seguridad Centralizada
+    QueryBuilderUtil.applyUserScope(queryBuilder, 'device', userInfo);
+
+    const deviceResult = await queryBuilder.getOne();
+
+    if (!deviceResult) {
+      throw new HttpException(
+        `El dispositivo con Id "${deviceId}" no se encuantra en el sistema.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return deviceResult;
   }
 }

@@ -1,4 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
+// src/modules/devices/services/devices.dto.ts
+
 import {
   IsBoolean,
   IsDate,
@@ -9,18 +10,13 @@ import {
   MaxLength,
 } from 'class-validator';
 import { DEVICE_TYPES } from '../../../constants/devices-types.js';
+import { ApiProperty } from '@nestjs/swagger';
 
 /**
  * @description Estructura de Transferencia de Datos (DTO) para la creación base de un Dispositivo.
  * Define las validaciones de entrada permitidas por el pipe Validation de NestJS.
  */
 export class DeviceDto {
-  @ApiProperty({
-    description: 'The type of the hardware device',
-    enum: DEVICE_TYPES,
-    example: DEVICE_TYPES.ESP32,
-    required: false,
-  })
   @IsOptional()
   @IsEnum(DEVICE_TYPES)
   deviceType?: DEVICE_TYPES;

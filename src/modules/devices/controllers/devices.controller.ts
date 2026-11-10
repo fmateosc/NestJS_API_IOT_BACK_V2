@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { AccessLevelGuard } from '../../auth/guard/access-level.guard.js';
 import { AuthGuard } from '../../auth/guard/auth.guard.js';
 import { DevicesService } from '../services/devices.service.js';
@@ -26,5 +26,21 @@ export class DevicesController {
     @GetUserInfo() userInfo: IUserInfo,
   ) {
     return await this.deviceService.createNewDevice(newDeviceData, userInfo);
+  }
+
+  /**
+   * @description Endpoint GET protegido paramétrico para buscar la información completa de un Dispositivo específico.
+   * Requiere que el Dispositivo exista y le pertenezca al usuario consultor si no es ROOT.
+   * @param {string} deviceId - String param URL parseado a UUID.
+   * @param {IUserInfo} userInfo - Interface inyectada.
+   * @returns {Promise<any>} Instancia del dispositivo.
+   */
+  @Access('ADMIN')
+  @Get('find/:deviceId')
+  public async findDeviceById(
+    @Param('deviceId', ParseUUIDPipe) deviceId: string,
+    @GetUserInfo() userInfo: IUserInfo,
+  ) {
+    return await this.deviceService.findDeviceById(deviceId, userInfo);
   }
 }

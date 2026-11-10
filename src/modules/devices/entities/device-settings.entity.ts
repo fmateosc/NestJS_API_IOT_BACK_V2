@@ -1,6 +1,8 @@
-import { Column, Entity, JoinColumn, OneToOne } from 'typeorm';
-import { BaseEntity } from '../../../config/base.entity.js';
-import { DevicesEntity } from './devices.entity.js';
+// src/modules/devices/entities/device-settings.entity.ts
+
+import { BaseEntity } from "../../../config/base.entity.js";
+import { Column, Entity, JoinColumn, OneToOne } from "typeorm";
+import { DevicesEntity } from "./devices.entity.js";
 
 /**
  * @description Entidad de configuraciones almacenadas por dispositivo (Tabla `device_settings`).
