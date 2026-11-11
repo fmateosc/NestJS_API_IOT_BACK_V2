@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AccessLevelGuard } from '../../auth/guard/access-level.guard.js';
 import { AuthGuard } from '../../auth/guard/auth.guard.js';
 import { DevicesService } from '../services/devices.service.js';
@@ -42,5 +50,10 @@ export class DevicesController {
     @GetUserInfo() userInfo: IUserInfo,
   ) {
     return await this.deviceService.findDeviceById(deviceId, userInfo);
+  }
+
+  @Get('emqx/topics')
+  public async testEmqxApi() {
+    return await this.deviceService.testEmqxApi();
   }
 }

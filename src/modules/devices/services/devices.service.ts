@@ -1,10 +1,11 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { forwardRef, HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { DevicesEntity } from '../entities/devices.entity.js';
 import { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 import { DeviceDto } from '../dtos/devices.dto.js';
 import { QueryBuilderUtil } from '../../../util/query-builder.util.js';
+import { EmqxApiService } from '../../providers/http/emqx-api.service.js';
 
 @Injectable()
 export class DevicesService {
@@ -13,6 +14,8 @@ export class DevicesService {
   constructor(
     @InjectRepository(DevicesEntity)
     private readonly deviceRepository: Repository<DevicesEntity>,
+    @Inject(forwardRef(() => EmqxApiService))
+    private readonly httpEmqxApiService: EmqxApiService,
   ) {}
 
   /**
@@ -117,4 +120,12 @@ export class DevicesService {
   // TODO: deleteDeviceById
 
   // TODO: deleteDeviceById
+
+  /**
+   * @description Test de integración rápida para diagnosticar la salud y conectividad contra el EMQX (Broker MQTT).
+   * @returns {Promise<any>} Listado asíncrono de tópicos subscritos o activos provenientes del API EMQX.
+   */
+  public async testEmqxApi() {
+    return this.httpEmqxApiService.emqxApiGetTopicList();
+  }
 }
