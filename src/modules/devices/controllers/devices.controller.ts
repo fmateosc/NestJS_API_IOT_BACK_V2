@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { AccessLevelGuard } from '../../auth/guard/access-level.guard.js';
@@ -14,6 +15,7 @@ import { GetUserInfo } from '../../auth/decorators/user.info.decorator.js';
 import type { IUserInfo } from '../../auth/intefaces/auth.interface.js';
 import { DeviceDto } from '../dtos/devices.dto.js';
 import { Access } from '../../auth/decorators/access.decorator.js';
+import { UpdateDeviceDto } from '../dtos/update.device.dto.js';
 
 @Controller('devices')
 @UseGuards(AuthGuard, AccessLevelGuard)
@@ -50,6 +52,20 @@ export class DevicesController {
     @GetUserInfo() userInfo: IUserInfo,
   ) {
     return await this.deviceService.findDeviceById(deviceId, userInfo);
+  }
+
+  @Access('ADMIN')
+  @Put('update/:deviceId')
+  public async updateDeviceById(
+    @Param('deviceId', ParseUUIDPipe) deviceId: string,
+    @Body() updateDeviceData: UpdateDeviceDto,
+    @GetUserInfo() userInfo: IUserInfo,
+  ) {
+    return await this.deviceService.updateDeviceById(
+      updateDeviceData,
+      deviceId,
+      userInfo,
+    );
   }
 
   @Get('emqx/topics')

@@ -214,7 +214,7 @@ export class DevicesService {
 
     await this.deviceRepository.update(deviceId, updateDeviceData);
 
-    // TODO: update en EMQX API
+    // Update en EMQX API
     const ensureSettingsInitialized =
       await this.httpEmqxApiService.ensureSettingsInitialized();
 
