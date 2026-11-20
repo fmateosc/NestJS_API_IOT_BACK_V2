@@ -11,6 +11,10 @@ import { GeneralSettingsEntity } from '../../settings/entities/settings.entity.j
 import { SettingsService } from '../../settings/services/settings.service.js';
 import { AxiosError, AxiosRequestConfig } from 'axios';
 import { firstValueFrom, catchError } from 'rxjs';
+import {
+  IEmqxBannedParams,
+  IEmqxBannedResponseData,
+} from '../../../common/interfaces/emqx.interface.js';
 
 @Injectable()
 export class EmqxApiService {
@@ -107,7 +111,7 @@ export class EmqxApiService {
       const message = error instanceof Error ? error.message : String(error);
 
       this.logger.error(`Unexpected EMQX Request Error: ${message}`);
-      
+
       throw new HttpException(
         {
           message: `Internal error during EMQX communication: ${message}`,
@@ -153,5 +157,115 @@ export class EmqxApiService {
     const url = `http://${this.dataSettings?.emqxAppHost}:${this.dataSettings?.emqxAppPort}/api/v5/topics`;
 
     return this.requestWithConfig('get', url);
+  }
+
+  /**
+   * @description Crea un Event-WebHook (`Data Bridge`) dinámico en EMQX.
+   * Enruta automáticamente los flujos asíncronos MQTT propios de los Dispositivos del Usuario
+   * como POST HTTP Request JSON hacia nuestra API (`/api/v1/messages/register`).
+   * @param {Object} args - `{ name: nombreIdentiicador, user: usernameDeFiltrado }`
+   * @returns {Promise<any>} Response de EMQX API V5.
+   */
+  public emqxApiPostBridge({
+    name,
+    user,
+  }: {
+    name: string;
+    user: string;
+  }): Promise<any> {
+    const url = `http://${this.dataSettings?.emqxAppHost}:${this.dataSettings?.emqxAppPort}/api/v5/bridges`;
+
+    const data = {
+      name: `http_${this.formatText(name)}`,
+      type: 'webhook',
+      ssl: { enable: false },
+      connect_timeout: '15s',
+      pool_size: 4,
+      enable: true,
+      method: 'post',
+      url: `http://${this.dataSettings?.apiCoreHost}:${this.dataSettings?.apiCorePort}/api/v1/messages/register`,
+      max_retries: 3,
+      request_timeout: '15s',
+      pool_type: 'random',
+      resource_opts: {
+        worker_pool_size: 1,
+        inflight_window: 100,
+        health_check_interval: 15000,
+        query_mode: 'async',
+        max_buffer_bytes: 104857600,
+      },
+      enable_pipelining: 100,
+      local_topic: `/${user}/#`, // /emqx1/# [Modificado para que capture todo del usuario]
+    };
+
+    return this.requestWithConfig('post', url, data);
+  }
+
+  // These are formatted names.
+  private formatText(text: string): string {
+    return text.split(' ').join('_');
+  }
+
+  /**
+   * @description Regresa la lista matriz de clientes (devices / usuarios) BANEADOS permanentemente en todo el clúster EMQX.
+   * @returns {Promise<Exclude<IEmqxBannedResponseData, never>>} Interface de Tipado Estricto de los Ban-Logs.
+   */
+  public emqxApiGetBannedList(): Promise<IEmqxBannedResponseData> {
+    const url = `http://${this.dataSettings?.emqxAppHost}:${this.dataSettings?.emqxAppPort}/api/v5/banned`;
+    return this.requestWithConfig('get', url);
+  }
+
+  /**
+   * @description Remueve un Dispositivo/Cliente específico de la Lista Negra (Blacklist/Ban).
+   * @param {IEmqxBannedParams} params `{ as: 'clientid' | 'username' | 'peerhost', who: stringID }`
+   * @returns {Promise<number>} Status 204 No Content.
+   */
+  public emqxApiDeleteBanned(params: IEmqxBannedParams): Promise<number> {
+    const url = `http://${this.dataSettings?.emqxAppHost}:${this.dataSettings?.emqxAppPort}/api/v5/banned/${params.as}/${params.who}`;
+
+    return this.requestWithConfig('delete', url);
+  }
+
+  /**
+   * @description Inserta a un infractor (Device Bloqueado o Robo) a la Lista Nera forzando la expulsión de todo Node MQTT.
+   * @param {IEmqxBannedParams} params - Detalles de causa y duración de pena (`until`, `reason`, `by`, `as`, `who`).
+   * @returns {Promise<any>}
+   */
+  public emqxApiPostAddBanned(params: IEmqxBannedParams): Promise<any> {
+    const url = `http://${this.dataSettings?.emqxAppHost}:${this.dataSettings?.emqxAppPort}/api/v5/banned`;
+    const data = {
+      as: params.as,
+      who: params.who,
+      by: params.by || 'irrigation_app_api', // Valor por defecto
+      reason: params.reason,
+      at: params.at,
+      until: params.until,
+    };
+
+    return this.requestWithConfig('post', url, data);
+  }
+
+  /**
+   * @description Inicia o Suspende temporalmente el Webhook/Puente pre-existente.
+   * @param {string} id - Bridge action ID (`http_my_action`).
+   * @param {boolean} enable - Target status (true = running, false = stopped).
+   * @returns {Promise<any>}
+   */
+  public emqxApiPutEnableDisableBridge(
+    id: string,
+    enable: boolean,
+  ): Promise<any> {
+    const url = `http://${this.dataSettings?.emqxAppHost}:${this.dataSettings?.emqxAppPort}/api/v5/bridges/${id}/enable/${enable}`;
+    return this.requestWithConfig('put', url);
+  }
+
+  /**
+   * @description Elimina por completo un Webhook/Puente Bridge enlazado.
+   * @param {string} id - Id del Action de puente `http_NAME`.
+   * @returns {Promise<number>} HTTP Status Code 204.
+   */
+  public emqxApiDeleteBridge(id: string): Promise<number> {
+    const url = `http://${this.dataSettings?.emqxAppHost}:${this.dataSettings?.emqxAppPort}/api/v5/bridges/${id}`;
+    return this.requestWithConfig('delete', url);
   }
 }

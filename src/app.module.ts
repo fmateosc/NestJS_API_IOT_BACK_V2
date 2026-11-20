@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { DevicesModule } from './modules/devices/devices.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
 import { HttpProviderModule } from './modules/providers/http-provider.module.js';
+import { MessagesModule } from './modules/messages/messages.module.js';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { HttpProviderModule } from './modules/providers/http-provider.module.js'
     DevicesModule,
     SettingsModule,
     HttpProviderModule,
+    MessagesModule,
   ],
   controllers: [],
   providers: [{
