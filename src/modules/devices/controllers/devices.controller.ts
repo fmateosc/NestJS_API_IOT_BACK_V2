@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -66,6 +67,15 @@ export class DevicesController {
       deviceId,
       userInfo,
     );
+  }
+
+  @Access('ADMIN')
+  @Delete('delete/:deviceId')
+  public async deleteDeviceById(
+    @Param('deviceId', ParseUUIDPipe) deviceId: string,
+    @GetUserInfo() userInfo: IUserInfo,
+  ) {
+    return await this.deviceService.deleteDeviceById(deviceId, userInfo);
   }
 
   @Get('emqx/topics')
