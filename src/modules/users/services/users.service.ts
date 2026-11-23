@@ -21,6 +21,7 @@ import { UpdateUserDto } from '../dtos/update.user.dto.js';
 import { PasswordUserDto } from '../dtos/update.password.user.dto.js';
 import { AuthService } from '../../auth/services/auth.service.js';
 import type { WrapperType } from '../../../common/types/wrapper.type.js';
+import { MailService } from '../../providers/mail/mail.service.js';
 
 @Injectable()
 export class UsersService {
@@ -31,6 +32,7 @@ export class UsersService {
     private readonly usersRepository: Repository<UsersEntity>,
     @Inject(forwardRef(() => AuthService))
     private readonly authService: WrapperType<AuthService>,
+    private readonly mailService: MailService,
   ) {}
 
   /**
@@ -195,7 +197,23 @@ export class UsersService {
     return user;
   }
 
-  // TODO: findOneSimple
+  /**
+   * @description Localizador nativo simplificado (Sin filtros por Scope Tenant) para
+   * utilidades internas (Ej: Guardias de validación de tokens).
+   * @param {string} userId - UUID de usuario purgado directo.
+   * @returns {Promise<UsersEntity>}
+   * @throws {HttpException} Si el UID no arroja un resultado.
+   */
+  public async findOneSimple(userId: string): Promise<UsersEntity> {
+    const user = await this.usersRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new HttpException(
+        `User with Id ${userId} not found`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return user;
+  }
 
   /**
    * @description Localiza todos los usuarios paginados y condicionados a una cadena de búsqueda
@@ -451,7 +469,183 @@ export class UsersService {
       twoStepCode: null as any,
       twoStepExpires: null as any,
     });
-    
+
     return true;
+  }
+
+  /**
+   * @description Genera un código de 6 dígitos y lo envía por correo.
+   */
+  async generateAndSendTwoStepCode(userId: string): Promise<boolean> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: { userEmail: true, userFullName: true },
+    });
+
+    if (!user) return false;
+
+    // Generar código de 6 dígitos
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date();
+    expires.setMinutes(expires.getMinutes() + 15); // 15 minutos de validez
+
+    await this.usersRepository.update(userId, {
+      twoStepCode: code,
+      twoStepExpires: expires,
+    });
+
+    // Enviar correo en segundo plano (No bloqueante tras actualizar DB)
+    this.mailService
+      .sendTwoStepCodeEmail(user.userEmail, user.userFullName || 'User', code)
+      .catch((e) => {
+        console.error(
+          'Failed to dispatch background 2FA verification email',
+          e,
+        );
+      });
+
+    return true;
+  }
+  /**
+   * @description Verifica si un código de 2FA es válido.
+   */
+  async verifyTwoStepCode(userId: string, code: string): Promise<boolean> {
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.twoStepCode')
+      .addSelect('user.twoStepExpires')
+      .where('user.id = :userId', { userId })
+      .getOne();
+
+    if (!user || !user.twoStepCode || !user.twoStepExpires) {
+      return false;
+    }
+
+    // Validar expiración
+    if (new Date() > user.twoStepExpires) {
+      return false;
+    }
+
+    // Validar coincidencia
+    if (user.twoStepCode !== code) {
+      return false;
+    }
+
+    // Limpiar código tras éxito
+    await this.usersRepository.update(userId, {
+      twoStepCode: null as any,
+      twoStepExpires: null as any,
+    });
+
+    return true;
+  }
+
+  // Generar Token asíncrono para recuperación de contraseña
+  public async generatePasswordResetToken(
+    email: string,
+    baseUrl?: string,
+  ): Promise<boolean> {
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.userEmail = :email', { email })
+      .getOne();
+
+    // Evitar Spoofing (Si no existe el correo, respondemos estatus true silenciosamente)
+    if (!user) {
+      return true;
+    }
+
+    const resetToken = randomBytes(32).toString('hex');
+    await this.usersRepository.update(user.id, {
+      resetPasswordToken: resetToken,
+    });
+
+    // Enviar correo asincrónicamente
+    this.mailService
+      .sendPasswordResetEmail(
+        user.userEmail,
+        user.userFullName,
+        resetToken,
+        baseUrl,
+      )
+      .catch((e) => {
+        console.error('Failed to dispatch background password reset email', e);
+      });
+
+    return true;
+  }
+
+  // Validar token y ejecutar el reseteo
+  public async resetPasswordWithToken(
+    token: string,
+    newPassword: string,
+  ): Promise<boolean> {
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.resetPasswordToken')
+      .addSelect('user.password')
+      .where('user.resetPasswordToken = :token', { token })
+      .getOne();
+
+    if (!user) {
+      throw new HttpException(
+        'Invalid or expired reset token',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
+    if (!regex.test(newPassword)) {
+      throw new HttpException(
+        'Password does not meet security constraints (at least 8 chars, 1 upper, 1 lower, 1 number, 1 special)',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Hasheamos la nueva contraseña y purgamos el token
+    const saltRounds = Number(process.env.HASH_SALT) || 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    await this.usersRepository.update(user.id, {
+      password: hashedPassword,
+      resetPasswordToken: null as any,
+    });
+
+    return true;
+  }
+
+  /**
+   * @description Valida un token de correo y lo rota inmediatamente por uno nuevo.
+   * Esto asegura que el link del correo "se queme" al abrirse por primera vez.
+   * @param {string} oldToken - Token recibido desde el email.
+   * @returns {Promise<{ userName: string, newToken: string }>} Datos para el formulario.
+   */
+  async consumeAndRotateToken(
+    oldToken: string,
+  ): Promise<{ userName: string; newToken: string }> {
+    const user = await this.usersRepository.findOne({
+      where: { resetPasswordToken: oldToken },
+      select: { userEmail: true, userFullName: true },
+    });
+
+    if (!user) {
+      throw new HttpException(
+        'Reset link is invalid or has already been used.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Generamos un nuevo token que solo conocerá el formulario abierto
+    const crypto = require('crypto');
+    const newToken = crypto.randomBytes(32).toString('hex');
+
+    await this.usersRepository.update(user.id, {
+      resetPasswordToken: newToken,
+    });
+
+    return {
+      userName: user.userFullName || 'User Account',
+      newToken: newToken,
+    };
   }
 }

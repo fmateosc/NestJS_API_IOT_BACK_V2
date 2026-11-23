@@ -13,6 +13,7 @@ import { DevicesModule } from './modules/devices/devices.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
 import { HttpProviderModule } from './modules/providers/http-provider.module.js';
 import { MessagesModule } from './modules/messages/messages.module.js';
+import { MailProviderModule } from './modules/providers/mail/mail.module.js';
 
 @Module({
   imports: [
@@ -44,11 +45,14 @@ import { MessagesModule } from './modules/messages/messages.module.js';
     SettingsModule,
     HttpProviderModule,
     MessagesModule,
+    MailProviderModule,
   ],
   controllers: [],
-  providers: [{
+  providers: [
+    {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
-    },],
+    },
+  ],
 })
 export class AppModule {}
