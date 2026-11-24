@@ -8,12 +8,12 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { SettingsService } from '../../settings/services/settings.service.js';
-import { GeneralSettingsEntity } from '../../settings/entities/settings.entity.js';
 import * as mqtt from 'mqtt';
-import { Observable, Subject } from 'rxjs';
+import { GeneralSettingsEntity } from '../../settings/entities/settings.entity.js';
 import { DeviceSettingsService } from '../../devices/services/device-settings.service.js';
 import { ModuleRef } from '@nestjs/core';
+import { SettingsService } from '../../settings/services/settings.service.js';
+import { Observable, Subject } from 'rxjs';
 
 /**
  * @description Proveedor Global de conectividad nativa MQTT (Protocolo IoT).
@@ -74,9 +74,8 @@ export class MqttService implements OnModuleDestroy, OnModuleInit {
         this.dataSettings = await this.settingsService.findGeneralSettings();
         if (!this.dataSettings) {
           this.logger.warn(
-            'No se han encontrado los ajustes generales. Se volverá a intentar dentro de 60 segundos...',
+            'General settings not found. Retrying in 60 seconds...',
           );
-
           return;
         }
 
@@ -84,7 +83,7 @@ export class MqttService implements OnModuleDestroy, OnModuleInit {
         this.brokerUrl = `mqtt://${this.hostname}:${this.dataSettings?.mqttApiPort}`;
 
         this.logger.log(
-          `La configuración general se ha cargado correctamente. Inicializando el bróker MQTT en ${this.brokerUrl}...`,
+          `General settings loaded successfully. Initializing MQTT broker on ${this.brokerUrl}...`,
         );
 
         // conectar el usuario por defecto (este método internamente reiniciará si "emqx" ya estaba mapeado)
@@ -138,7 +137,6 @@ export class MqttService implements OnModuleDestroy, OnModuleInit {
     // Si el usuario ya está conectado, se desconecta antes de continuar
     if (this.mqttClients.has(userId)) {
       this.logger.log(`User ${userId} is already connected to MQTT.`);
-
       this.doDisconnectUser(userId);
     }
 
@@ -253,7 +251,7 @@ export class MqttService implements OnModuleDestroy, OnModuleInit {
             this.logger.error(
               `MQTT subscribe error for topic "${topic}": ${error}`,
             );
-
+            //reject(error);
             return;
           }
           this.logger.log(
@@ -320,12 +318,10 @@ export class MqttService implements OnModuleDestroy, OnModuleInit {
   onModuleDestroy() {
     this.mqttClients.forEach((client, userId) => {
       client.end();
-
       this.logger.log(
         `User "${userId}" disconnected from MQTT during module destruction`,
       );
     });
-
     this.mqttClients.clear();
   }
 
