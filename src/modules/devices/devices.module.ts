@@ -5,11 +5,12 @@ import { UsersModule } from '../users/users.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DeviceSettingsEntity } from './entities/device-settings.entity.js';
 import { DevicesEntity } from './entities/devices.entity.js';
+import { MqttProviderModule } from '../providers/mqtt-provider.module.js';
 
 @Module({
   imports: [
     forwardRef(() => UsersModule),
-    //forwardRef(() => MqttProviderModule),
+    forwardRef(() => MqttProviderModule),
     //forwardRef(() => WebsocketsProviderModule),
     TypeOrmModule.forFeature([DevicesEntity, DeviceSettingsEntity]),
   ],

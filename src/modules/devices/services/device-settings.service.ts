@@ -12,7 +12,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DeviceSettingsEntity } from '../entities/device-settings.entity.js';
 import { Repository } from 'typeorm';
 import { DevicesEntity } from '../entities/devices.entity.js';
-import { MqttService } from '../../providers/mqtt/mqtt.service1.js';
+import { MqttService } from '../../providers/mqtt/mqtt.service.js';
 //import { WebsocketsGateway } from '../../providers/websockets/websockets.gateway.js';
 import * as wrapperType from '../../../common/types/wrapper.type.js';
 
