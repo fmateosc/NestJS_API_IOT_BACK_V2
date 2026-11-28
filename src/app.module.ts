@@ -14,6 +14,7 @@ import { SettingsModule } from './modules/settings/settings.module.js';
 import { HttpProviderModule } from './modules/providers/http-provider.module.js';
 import { MessagesModule } from './modules/messages/messages.module.js';
 import { MailProviderModule } from './modules/providers/mail/mail.module.js';
+import { TaskModule } from './modules/schedules/task/task.module.js';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { MailProviderModule } from './modules/providers/mail/mail.module.js';
     HttpProviderModule,
     MessagesModule,
     MailProviderModule,
+    TaskModule,
   ],
   controllers: [],
   providers: [
